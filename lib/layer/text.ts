@@ -1,6 +1,6 @@
 import Layer from './layer';
 import { GraphType, Vertex, TextAlign, BaseLine } from '../typeof/typeof';
-import * as goomath from '../goomath';
+import * as math from '../math';
 
 
 export default class IText extends Layer {
@@ -15,7 +15,7 @@ export default class IText extends Layer {
       fill: true,
       stroke: false,
       font: '14px Arial',
-      textAlign: TextAlign.CENTER, // 'start|end|center|left|right'
+      textAlign: TextAlign.LEFT, // 'start|end|center|left|right'
       baseLine: BaseLine.MIDDLE, // 'alphabetic|top|hanging|middle|ideographic|bottom'
       maxLength: 0,
       verticleSpace: 0,
@@ -34,6 +34,9 @@ export default class IText extends Layer {
     // ideographic： 文本基线是em基线。底部对齐
     // bottom ： 文本基线是 em 方框的底端。底部对齐
     this.setOptions({...defaultOptions, ...options});
+    if (options.fontSize && typeof options.fontSize === 'number') {
+      this.options.font = options.fontSize.toString() + 'px Arial';
+    }
   }
   public getLayerType(): GraphType {
     return GraphType.TEXT;
@@ -44,7 +47,7 @@ export default class IText extends Layer {
   /**
    * 返回文字的Bound
    */
-  public getBound(): goomath.Bound {
+  public getBound(): math.Bound {
     const fontSize: number = this.getFontSize();
     const len = this.content.length;
     const height: number = fontSize * len + (len - 1) * this.options.verticleSpace;
@@ -63,7 +66,7 @@ export default class IText extends Layer {
     } else if (this.options.baseLine === 'middle') {
       y -= height / 2;
     }
-    return new goomath.Bound(x, y, width, height);
+    return new math.Bound(x, y, width, height);
   }
   /**
    * 返回文字的轮廓线
@@ -110,6 +113,11 @@ export default class IText extends Layer {
     this.fixContent();
     this.updateAll();
   }
+  public translate(dx: number, dy: number) {
+    this.geometry[0] += dx;
+    this.geometry[1] += dy;
+    this.updateAll();
+  }
   public isPointClosest(pos: Vertex): boolean {
     const outline = this.computeOutline();
     outline.push(outline[0]);
@@ -117,7 +125,7 @@ export default class IText extends Layer {
     for (let i = 0; i < outline.length - 1; i++) {
       const curPt = outline[i];
       const nextPt = outline[i + 1];
-      if (goomath.Base.isZero(curPt[0] - nextPt[0]) && pos[0] < curPt[0] && (pos[1] - curPt[1]) * (pos[1] - nextPt[1]) < 0) {
+      if (math.Base.isZero(curPt[0] - nextPt[0]) && pos[0] < curPt[0] && (pos[1] - curPt[1]) * (pos[1] - nextPt[1]) < 0) {
         count++;
       }
     }
@@ -159,5 +167,18 @@ export default class IText extends Layer {
       return parseInt(font[0], 10);
     }
     return defaultFontSize;
+  }
+  public isIntersectWithBound(bound: math.Bound): boolean {
+    const geoms: Vertex[] = this.computeOutline();
+    for (let i = 0; i < geoms.length - 1; i++) {
+      if (bound.isIntersectOfSegment(geoms[i], geoms[i + 1])) {
+        return true;
+      }
+    }
+    return false;
+  }
+  public clone() {
+    const options = {...this.options, _render: null, _stage: null};
+    return new IText(this.geometry, this.text, options);
   }
 }

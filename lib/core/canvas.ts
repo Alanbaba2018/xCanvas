@@ -1,13 +1,13 @@
 import { Vertex, GraphType } from '../typeof/typeof';
 import Layer from '../layer/layer';
 import Circle from '../layer/circle';
-import * as goomath from '../goomath';
+import * as math from '../math';
 import ImageLayer from '../layer/imageLayer';
-import LayerGroup from '../layer/layerGroup';
 import Polyline from '../layer/polyline';
 import IText from '../layer/text';
-import HotMap from '../layer/hotMap';
 import Render from './render';
+import Rectangle from '../layer/rectangle';
+import Util from '../util/util';
 
 export default class CanvasHelper {
   public retina: number = 1;
@@ -18,6 +18,7 @@ export default class CanvasHelper {
   private h: number = 0;
   private scale: number;
   private center: Vertex = [0, 0];
+  private bgColor: string = '#ffffff';
   private cache: Map<string, HTMLImageElement>;
   private aliaveCache: Map<string, HTMLImageElement>;
   private readonly render: Render;
@@ -52,10 +53,10 @@ export default class CanvasHelper {
   /**
    * 返回画布可视区域的世界坐标Bound
    */
-  public getViewBound(): goomath.Bound {
+  public getViewBound(): math.Bound {
     const leftBottom = this.screenToWorldCoordinate([0, this.h]);
     const rightTop = this.screenToWorldCoordinate([this.w, 0]);
-    return new goomath.Bound(leftBottom[0], leftBottom[1], rightTop[0] - leftBottom[0], rightTop[1] - leftBottom[1]);
+    return new math.Bound(leftBottom[0], leftBottom[1], rightTop[0] - leftBottom[0], rightTop[1] - leftBottom[1]);
   }
   /**
    * 返回画布各项参数,用于clone
@@ -155,8 +156,8 @@ export default class CanvasHelper {
    */
   public setBackground(color?: string) {
     this.context.clearRect(0, 0, this.w, this.h);
-    // this.context.fillStyle = color || this.bgColor;
-    // this.context.fillRect(0, 0, this.w, this.h);
+    this.context.fillStyle = color || this.bgColor;
+    this.context.fillRect(0, 0, this.w, this.h);
   }
   /**
    * 设置画布缩放参数
@@ -194,9 +195,9 @@ export default class CanvasHelper {
   }
   /**
    * 清空bound区域画布
-   * @param bound goomath.Bound
+   * @param bound math.Bound
    */
-  public clearPart(bound: goomath.Bound) {
+  public clearPart(bound: math.Bound) {
     const screenPt = this.worldCoordinateToScreen([bound.x, bound.y + bound.height]);
     this.context.clearRect(screenPt[0] - 1, screenPt[1] - 1, bound.width * this.scale + 1, bound.height * this.scale + 1);
   }
@@ -244,13 +245,36 @@ export default class CanvasHelper {
       return;
     }
     this.context.beginPath();
-    for (let i = 0; i < geo.length; i++) {
-      const vertex = this.worldCoordinateToLocal(geo[i]);
-      this.context[i ? 'lineTo' : 'moveTo'](vertex[0], vertex[1]);
+    const level: number = Util.dimension_Array(geo);
+    if (level === 2) {
+      for (let i = 0; i < geo.length; i++) {
+        const vertex = this.worldCoordinateToLocal(geo[i]);
+        this.context[i ? 'lineTo' : 'moveTo'](vertex[0], vertex[1]);
+      }
+      if (layer.options.type === GraphType.POLYGON) {
+        this.context.closePath();
+      }
+    } else {
+      for (const mgeo of geo) {
+        for (let j = 0; j < mgeo.length; j++) {
+          const vertex = this.worldCoordinateToLocal(mgeo[j]);
+          this.context[j ? 'lineTo' : 'moveTo'](vertex[0], vertex[1]);
+        }
+        if (layer.options.type === GraphType.POLYGON) {
+          this.context.closePath();
+        }
+      }
     }
-    if (layer.options.type === GraphType.POLYGON) {
-      this.context.closePath();
-    }
+    this._fillstroke(layer);
+  }
+  /**
+   * 绘制矩形
+   * @param layer Rectangle图层
+   */
+  public drawRectangle(layer: Rectangle) {
+    this.context.beginPath();
+    const pt = this.worldCoordinateToLocal(layer.getNorthWest());
+    this.context.rect(pt[0], pt[1], layer.width, layer.height);
     this._fillstroke(layer);
   }
   /**
@@ -273,31 +297,6 @@ export default class CanvasHelper {
       const image = await layer.loadImageData();
       this.cache.set(layer.url, image);
       this.render.redraw();
-    }
-  }
-  /**
-   * 用于绘制图层组
-   * @param layer Group图层
-   */
-  public drawGroup(layer: LayerGroup) {
-    const layers = layer.getLayers();
-    for (const glayer of layers) {
-      const type = glayer.getLayerType();
-      switch (type) {
-        case GraphType.CIRCLE:
-          this.drawCircle(glayer as Circle);
-          break;
-        case GraphType.POLYLINE:
-        case GraphType.POLYGON:
-          this.drawPolyline(glayer as Polyline);
-          break;
-        case GraphType.IMAGE:
-          this.drawImage(glayer as ImageLayer);
-          break;
-        case GraphType.TEXT:
-          this.drawText(glayer as IText);
-          break;
-      }
     }
   }
   /**
@@ -328,39 +327,6 @@ export default class CanvasHelper {
       }
     }
   }
-  public drawHotMap(layer: HotMap) {
-    const data = layer.data;
-    data.sort((a, b) => a.count - b.count);
-    const min: number = data[0].count;
-    const max: number = data[data.length - 1].count;
-    const range: number = max - min;
-    for (const hotPoint of data) {
-      const alpha = hotPoint.count / range;
-      this.context.globalAlpha = alpha;
-      this.context.beginPath();
-      const position = this.worldCoordinateToLocal(hotPoint.pos);
-      const gradient = this.context.createRadialGradient(position[0], position[1], 0, position[0], position[1], hotPoint.count);
-      gradient.addColorStop(0, 'rgba(0,0,0,1)');
-      gradient.addColorStop(1, 'rgba(0,0,0,0)');
-      this.context.fillStyle = gradient;
-      this.context.arc(position[0], position[1], hotPoint.count, 0, Math.PI * 2);
-      this.context.fill();
-    }
-    const palette = this._getPalette();
-    const img = this.context.getImageData(0, 0, this.w, this.h);
-    const imageData = img.data;
-    for (let i = 3; i < imageData.length; i += 4) {
-      const alpha = imageData[i];
-      const offset = alpha * 4;
-      if (!offset) {
-        continue;
-      }
-      imageData[i - 3] = palette[offset];
-      imageData[i - 2] = palette[offset + 1];
-      imageData[i - 1] = palette[offset + 2];
-    }
-    this.context.putImageData(img, 0, 0, 0, 0, this.w, this.h)
-  }
   /**
    * 返回文字的对应宽度
    * @param text string
@@ -374,20 +340,6 @@ export default class CanvasHelper {
     const width = this.context.measureText(text).width;
     this.context.restore();
     return width;
-  }
-  private _getPalette() {
-    const canvas: HTMLCanvasElement = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 1;
-    const ctx: CanvasRenderingContext2D = canvas.getContext('2d') as CanvasRenderingContext2D;
-    const gradient = ctx.createLinearGradient(0, 0, 256, 1);
-    gradient.addColorStop(0.25, 'rgb(0,0,255)');
-    gradient.addColorStop(0.55, 'rgb(0,255,0)');
-    gradient.addColorStop(0.85, 'rgb(255,255,0)');
-    gradient.addColorStop(1.0, 'rgb(255,0,0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 256, 1);
-    return ctx.getImageData(0, 0, 256, 1).data;
   }
   /**
    * 设置stroke和fill等参数

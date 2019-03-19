@@ -57,5 +57,13 @@ export default class Util {
     a.download = fileName;
     a.click();
   }
+  public static dimension_Array(arr: any[]): number {
+    if (arr instanceof Array) {
+        return Math.max(...arr.map((e) => {
+            return 1 + Util.dimension_Array(e);
+        }));
+    } else {
+        return 0;
+    }
+  }
 }
-

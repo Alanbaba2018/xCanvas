@@ -7,8 +7,8 @@ import Polyline from '../layer/polyline';
 import ImageLayer from '../layer/imageLayer';
 import LayerGroup from '../layer/layerGroup';
 import IText from '../layer/text';
-import HotMap from '../layer/hotMap';
-import * as goomath from '../goomath';
+import * as math from '../math';
+import Rectangle from '../layer/rectangle';
 
 export default class Render {
   // 是否渲染全部图层
@@ -18,14 +18,12 @@ export default class Render {
   private stage: Stage;
   private canvasHelper: CanvasHelper;
   private cacheHelper: CanvasHelper;
-  private backGroundColor: string = '#ffffff';
   constructor(w: number, h: number, stage: Stage) {
     const scale: number = stage.getZoom();
-    this.backGroundColor = (stage.options && stage.options.backGroundColor) || this.backGroundColor;
     this.canvasHelper = new CanvasHelper(w, h, this, scale);
     this.cacheHelper = new CanvasHelper(w, h, this, scale);
     this.cacheHelper.isCache = true;
-    this.canvasHelper.setBackground(this.backGroundColor);
+    this.canvasHelper.setBackground('#c6c6c6');
     this.stage = stage;
     this.peddingLayers = new Set();
   }
@@ -86,7 +84,7 @@ export default class Render {
   /**
    * 返回当前视口画布的Bound坐标
    */
-  public getBound(): goomath.Bound {
+  public getBound(): math.Bound {
     return this.canvasHelper.getViewBound();
   }
   /**
@@ -94,9 +92,9 @@ export default class Render {
    * @param options 渲染参数
    */
   public cloneCanvas(options?: {[k: string]: any}): Promise<HTMLCanvasElement> {
-    const bounds: goomath.Bound[] = [];
+    const bounds: math.Bound[] = [];
     this.stage.eachLayer((layer: Layer) => {
-      const bbound: goomath.Bound = layer.getBound();
+      const bbound: math.Bound = layer.getBound();
       bounds[0] = bounds.length === 1 ? bounds[0].expand(bbound) : bbound;
     });
     if (bounds.length === 0) {
@@ -148,7 +146,7 @@ export default class Render {
    * @param layer Layer
    */
   public drawPath(layer: Layer, canvasHelper: CanvasHelper = this.canvasHelper) {
-    const type: GraphType = layer.options.type;
+    const type: GraphType = layer.getLayerType();
     switch (type) {
       case GraphType.CIRCLE:
       case GraphType.POINT:
@@ -158,21 +156,36 @@ export default class Render {
       case GraphType.POLYGON:
         canvasHelper.drawPolyline(layer as Polyline);
         break;
+      case GraphType.RECTANGLE:
+        canvasHelper.drawRectangle(layer as Rectangle);
+        break;
       case GraphType.IMAGE:
         canvasHelper.drawImage(layer as ImageLayer);
-        break;
-      case GraphType.GROUP:
-        const layerGroup: LayerGroup = layer as LayerGroup;
-        canvasHelper.drawGroup(layerGroup);
         break;
       case GraphType.TEXT:
         canvasHelper.drawText(layer as IText);
         break;
-      case GraphType.HOTMAP:
-        canvasHelper.drawHotMap(layer as HotMap);
+      case GraphType.GROUP:
+        this.drawGroup(layer as LayerGroup, canvasHelper);
         break;
       default:
         break;
+    }
+  }
+  /**
+   * 用于绘制图层组
+   * @param layer Group图层
+   */
+  public drawGroup(layer: LayerGroup, canvasHelper: CanvasHelper) {
+    const layers = layer.getLayers();
+    layer.setSubRender(layer.options._stage);
+    for (const glayer of layers) {
+      const type = glayer.getLayerType();
+      if (type === GraphType.GROUP) {
+        this.drawGroup(glayer as LayerGroup, canvasHelper);
+      } else {
+        this.drawPath(glayer, canvasHelper);
+      }
     }
   }
   /**
@@ -211,7 +224,7 @@ export default class Render {
    */
   public redraw() {
     this.canvasHelper.clear();
-    this.canvasHelper.setBackground(this.backGroundColor);
+    this.canvasHelper.setBackground('#c6c6c6');
     this.canvasHelper.startDraw(true);
     const bound = this.stage.getBound();
     const layers = this.stage.getLayers();
@@ -257,9 +270,9 @@ export default class Render {
   }
   /**
    * 清除指定Bound的画布区域
-   * @param bound goomath.Bound
+   * @param bound math.Bound
    */
-  public clearBoundPath(bound: goomath.Bound) {
+  public clearBoundPath(bound: math.Bound) {
     this.canvasHelper.clearPart(bound);
   }
   /**

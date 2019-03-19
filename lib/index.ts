@@ -3,13 +3,12 @@ import Layer from './layer/layer';
 import Circle from './layer/circle';
 import Polyline from './layer/polyline';
 import Polygon from './layer/polygon';
+import Rectangle from './layer/rectangle';
 import ImageLayer from './layer/imageLayer';
 import LayerGroup from './layer/layerGroup';
 import IText from './layer/text';
-import HotMap from './layer/hotMap';
-import {Vertex} from './typeof/typeof';
+import * as Math from './math';
 import Util from './util/util';
-import * as math from './goomath/index';
 
 export {
   Stage,
@@ -17,11 +16,10 @@ export {
   Circle,
   Polyline,
   Polygon,
+  Rectangle,
   ImageLayer,
   LayerGroup,
   IText,
-  HotMap,
-  Vertex,
+  Math,
   Util,
-  math
 };

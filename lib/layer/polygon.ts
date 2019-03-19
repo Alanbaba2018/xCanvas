@@ -1,9 +1,9 @@
 import Polyline from './polyline';
 import { GraphType, Vertex } from '../typeof/typeof';
-import * as goomath from '../goomath';
+import * as math from '../math';
 
 export default class Polygon extends Polyline {
-  constructor(geo: Vertex[], options: {[k: string]: any} = {}) {
+  constructor(geo: Vertex[] | Vertex[][], options: {[k: string]: any} = {}) {
     const defaultOptions = {
       fill: true,
       stroke: true,
@@ -16,13 +16,22 @@ export default class Polygon extends Polyline {
     return GraphType.POLYGON;
   }
   public isPointClosest(p: Vertex): boolean {
+    const geometry: any = this.getGeometry();
     if (this.options.fill || !this.options.strict) {
-      const mpolygon: goomath.Polygon = new goomath.Polygon(this.geometry);
-      return mpolygon.contain(p);
+      if (!this.isMutiLine) {
+        const mpolygon: math.Polygon = new math.Polygon(geometry);
+        return mpolygon.contain(p);
+      } else {
+        for (const geo of geometry) {
+          const mpolygon: math.Polygon = new math.Polygon(geometry);
+          if (mpolygon.contain(p)) {
+            return true;
+          }
+        }
+        return false;
+      }
     } else {
-      const mply: goomath.Polyline = new goomath.Polyline(this.geometry);
-      const nearestPoint: Vertex = mply.getNearestPoint(p);
-      const dis: number = goomath.Base.getDistance(p, nearestPoint);
+      const dis = this.getMinDistance(p);
       return dis <= this.tolerance;
     }
   }

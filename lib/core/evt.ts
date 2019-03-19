@@ -7,6 +7,9 @@ export default class Evt {
   constructor() {
     this.events = {};
   }
+  public hasEvent(evt: string): boolean {
+    return this.events[evt] && this.events[evt].length > 0;
+  }
   public on(evt: string, fn: object, context?: any) {
     this.events[evt] = this.events[evt] || [];
     // 减少内存
@@ -51,9 +54,11 @@ export default class Evt {
         context = undefined;
       }
       const listeners = this.events[evt];
-      const index = listeners.findIndex((cl: Handler) => cl.fn === fn && cl.ctx === context);
-      if (index > -1) {
-        listeners.splice(index, 1);
+      if (listeners) {
+        const index = listeners.findIndex((cl: Handler) => cl.fn === fn && cl.ctx === context);
+        if (index > -1) {
+          listeners.splice(index, 1);
+        }
       }
     }
   }

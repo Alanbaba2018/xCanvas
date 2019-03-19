@@ -1,8 +1,9 @@
 import Evt from './evt';
 import Render from './render';
-import { EventData, Vertex } from '../typeof/typeof';
+import { EventData, Vertex, GraphType } from '../typeof/typeof';
 import Layer from '../layer/layer';
-import * as goomath from '../goomath';
+import * as math from '../math';
+import LayerGroup from '../layer/layerGroup';
 
 interface ValidEventType {
   [k: string]: string;
@@ -19,16 +20,16 @@ export default class Stage extends Evt {
   public readonly render: Render;
   private draggEnable: boolean = true;
   private center: Vertex;
-  private zoom: number = 0.5;
+  private zoom: number = 1;
   private minZoom: number = 0.5;
   private maxZoom: number = 30;
   private zoomChange: number = 0.5;
   private readonly layers: Map <string, Layer>;
   private readonly highLightLayers: Map <string, Layer>;
-  constructor(dom: string | HTMLDivElement, options?: Options) {
+  constructor(id: string, options: Options = {}) {
     super();
-    this.container = typeof dom === 'string' ? document.getElementById(dom) as HTMLDivElement : dom as HTMLDivElement;
-    if (dom && !this.container) {
+    this.container = document.getElementById(id) as HTMLDivElement;
+    if (!this.container) {
       throw new Error('Stage container is not found.');
     }
     this.render = new Render(this.container.clientWidth, this.container.clientHeight, this);
@@ -36,7 +37,8 @@ export default class Stage extends Evt {
     this.highLightLayers = new Map();
     this._initContainer();
     this.center = this.render.getCenter();
-    this.options = options || {};
+    this.options = options;
+    this.options.id = id;
     this._setOptions(options);
     this._initEvents();
     this._resize();
@@ -44,8 +46,24 @@ export default class Stage extends Evt {
   /**
    * 返回所有图层
    */
-  public getLayers(): Layer[] {
-    return Array.from(this.layers.values());
+  public getLayers(filter?: any): Layer[] {
+    const layers = Array.from(this.layers.values());
+    if (filter) {
+      return layers.filter((layer) => filter(layer));
+    }
+    return layers;
+  }
+  /**
+   * 返回满足条件的第一个图层
+   * @param filter 过滤函数
+   */
+  public getLayer(filter: any): Layer | undefined {
+    const layers = Array.from(this.layers.values());
+    for (const layer of layers) {
+      if (filter(layer)) {
+        return layer;
+      }
+    }
   }
   /**
    * 返回所有高亮的图层
@@ -80,7 +98,7 @@ export default class Stage extends Evt {
   /**
    * 返回当前视口的Bound
    */
-  public getBound(): goomath.Bound {
+  public getBound(): math.Bound {
     return this.render.getBound();
   }
   /**
@@ -99,13 +117,40 @@ export default class Stage extends Evt {
     return canvas.toDataURL('image/png', 0.9);
   }
   /**
-   * 根据坐标点返回接近的图层
+   * 根据坐标点返回选中的图层
    * @param pos Vertex
    */
   public getLayersByPosition(pos: Vertex): Layer[] {
     const layers: Layer[] = [];
-    for (const [, layer] of this.layers) {
+    for (const [id, layer] of this.layers) {
       if (layer.isPointClosest(pos)) {
+        layers.push(layer);
+      }
+    }
+    return layers;
+  }
+  /**
+   * 根据坐标点返回选中的图层
+   * @param pos Vertex
+   */
+  public getLayerByPosition(pos: Vertex, tolerance?: number): Layer | undefined {
+    for (const [id, layer] of this.layers) {
+      if (layer.isPointClosest(pos, tolerance)) {
+        return layer;
+      }
+    }
+  }
+  /**
+   * 查找与矩形相交的图层
+   * @param bound Bound
+   * @param intersect 图层与bound相交或者包含在bound
+   */
+  public getLayersByBound(bound: math.Bound, intersect: boolean = true): Layer[] {
+    const layers: Layer[] = [];
+    for (const [id, layer] of this.layers) {
+      if (intersect && layer.isIntersectWithBound(bound)) {
+        layers.push(layer);
+      } else if (layer.isWithinBound(bound)) {
         layers.push(layer);
       }
     }
@@ -148,8 +193,22 @@ export default class Stage extends Evt {
       return this;
     }
     this.layers.delete(layer.id);
-    layer.remove();
-    return this;
+    this.render.redraw();
+    this.fire('removed', {layer});
+  }
+  /**
+   * 删除某些图层
+   * @param layers 图层组
+   */
+  public removeLayers(layers: Layer[]) {
+    for (const layer of layers) {
+      this.layers.delete(layer.id);
+      this.highLightLayers.delete(layer.id);
+    }
+    this.render.redraw();
+    for (const layer of layers) {
+      layer.fire('removed', {layer});
+    }
   }
   /**
    * 清空图层
@@ -163,6 +222,7 @@ export default class Stage extends Evt {
    */
   public clearHighLightLayer(layer?: Layer) {
     if (layer) {
+      this.highLightLayers.delete(layer.id);
       this.highLightLayers.delete(layer.id);
     } else {
       this.highLightLayers.clear();
@@ -233,6 +293,7 @@ export default class Stage extends Evt {
     this.render.setCenter(center, this.zoom);
     requestAnimationFrame(() => {
       this.render.redraw();
+      this.fire('moveend', {target: this, sourceTarget: event});
     });
   }
   /**
@@ -308,6 +369,7 @@ export default class Stage extends Evt {
     canvasDom.addEventListener('mousewheel', this._zoom.bind(this));
     canvasDom.addEventListener('mousedown', this._pan.bind(this));
     canvasDom.addEventListener('touchstart', this._pan.bind(this));
+    document.addEventListener('selectstart', () => false);
   }
   /**
    * 画布缩放事件
@@ -325,10 +387,8 @@ export default class Stage extends Evt {
     const center = canvasHelper.getOriginCenter();
     canvasHelper.setCenter([center[0] - offset[0] * delta, center[1] + offset[1] * delta]);
     this.render.updateCacheCanvas();
-    requestAnimationFrame(() => {
-      this.render.redraw();
-    });
-    this.fire('zoomend');
+    this.render.redraw();
+    this.fire('moveend', {target: this, sourceTarget: event});
   }
   /**
    * 画布平移事件
@@ -365,8 +425,8 @@ export default class Stage extends Evt {
       document.removeEventListener('touchmove', moveFunction);
       document.removeEventListener('touchend', upFunction);
       const evt: any = event;
-      this.fire('moveend', {target: this, sourceTarget: evt, pos: this.render.getPos([evt.offsetX, evt.offsetY])});
       this.center = this.getCenter();
+      this.fire('moveend', {target: this, sourceTarget: evt});
       evt.preventDefault();
     };
     document.addEventListener('mousemove', moveFunction);
@@ -425,8 +485,18 @@ export default class Stage extends Evt {
    */
   private _findEventTargets(evt: string, pos?: Vertex): Evt[] {
     const targets: Evt[] = [];
-    for (const [, layer] of this.layers) {
-      if (layer.listens(evt) && pos && layer.isPointClosest(pos)) {
+    for (const [id, layer] of this.layers) {
+      if (layer.type === GraphType.GROUP) {
+        // 修改layerGroup里面的子图层事件监听不到bug
+        for (const glayer of (layer as LayerGroup).getLayers()) {
+          if (glayer.listens(evt) && pos && glayer.isPointClosest(pos)) {
+            targets.push(glayer);
+            if (targets.includes(layer)) {
+              targets.push(layer);
+            }
+          }
+        }
+      } else if (layer.listens(evt) && pos && layer.isPointClosest(pos)) {
         targets.push(layer);
       }
     }

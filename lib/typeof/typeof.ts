@@ -20,7 +20,6 @@ export enum GraphType {
   IMAGE = 'IMAGE',
   GROUP = 'GROUP',
   TEXT = 'TEXT',
-  HOTMAP = 'HOTMAP',
 }
 
 export enum TextAlign {
