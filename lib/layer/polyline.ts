@@ -1,6 +1,6 @@
 import Layer from './layer';
 import { GraphType, Vertex } from '../typeof/typeof';
-import {Polyline as mPolyline, Base, Bound} from '../math';
+import {Polyline as mPolyline, Base, Bound} from '../math/index';
 import Util from '../util/util';
 
 export default class Polyline extends Layer {
@@ -9,7 +9,7 @@ export default class Polyline extends Layer {
     super();
     const defaultOptions = {
       stroke: true,
-      weight: 2,
+      weight: 1,
     };
     this.setOptions({...defaultOptions, ...options});
     this.highOptions.fill = false;

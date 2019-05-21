@@ -1,7 +1,7 @@
 import Stage from '../core/stage';
 import Layer from './layer';
 import { GraphType, Vertex } from '../typeof/typeof';
-import * as math from '../math';
+import * as math from '../math/index';
 import IText from './text';
 
 
@@ -27,7 +27,7 @@ export default class LayerGroup extends Layer {
     const bounds: math.Bound[] = [];
     for (const [id, layer] of this.layers) {
       const bound = layer.getBound();
-      bounds[0] = bounds.length > 0 ? bounds[0].expand(bound) : bound;
+      bounds[0] = bounds.length > 0 ? bounds[0].union(bound) : bound;
     }
     return bounds[0];
   }

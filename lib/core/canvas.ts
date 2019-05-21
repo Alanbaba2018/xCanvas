@@ -1,7 +1,7 @@
 import { Vertex, GraphType } from '../typeof/typeof';
 import Layer from '../layer/layer';
 import Circle from '../layer/circle';
-import * as math from '../math';
+import * as math from '../math/index';
 import ImageLayer from '../layer/imageLayer';
 import Polyline from '../layer/polyline';
 import IText from '../layer/text';
@@ -54,8 +54,8 @@ export default class CanvasHelper {
    * 返回画布可视区域的世界坐标Bound
    */
   public getViewBound(): math.Bound {
-    const leftBottom = this.screenToWorldCoordinate([0, this.h]);
-    const rightTop = this.screenToWorldCoordinate([this.w, 0]);
+    const leftBottom = this.screenToWorldCoordinate([0, this.h / this.retina]);
+    const rightTop = this.screenToWorldCoordinate([this.w / this.retina, 0]);
     return new math.Bound(leftBottom[0], leftBottom[1], rightTop[0] - leftBottom[0], rightTop[1] - leftBottom[1]);
   }
   /**
@@ -76,7 +76,7 @@ export default class CanvasHelper {
    * @param pt 世界坐标
    */
   public worldCoordinateToLocal(pt: Vertex): Vertex {
-    return [(pt[0] * this.retina) + 0.5, (-pt[1] * this.retina) + 0.5];
+    return [Math.round((pt[0] * this.retina)), Math.round((-pt[1] * this.retina))];
   }
   /**
    * 转换世界坐标为以右上角为基准点的屏幕坐标
@@ -251,21 +251,24 @@ export default class CanvasHelper {
         const vertex = this.worldCoordinateToLocal(geo[i]);
         this.context[i ? 'lineTo' : 'moveTo'](vertex[0], vertex[1]);
       }
-      if (layer.options.type === GraphType.POLYGON) {
+      if (layer.getLayerType() === GraphType.POLYGON) {
         this.context.closePath();
       }
+      this._fillstroke(layer);
     } else {
       for (const mgeo of geo) {
+        this.context.beginPath();
         for (let j = 0; j < mgeo.length; j++) {
           const vertex = this.worldCoordinateToLocal(mgeo[j]);
           this.context[j ? 'lineTo' : 'moveTo'](vertex[0], vertex[1]);
         }
-        if (layer.options.type === GraphType.POLYGON) {
+        if (layer.getLayerType() === GraphType.POLYGON) {
           this.context.closePath();
         }
+        this._fillstroke(layer);
       }
     }
-    this._fillstroke(layer);
+    
   }
   /**
    * 绘制矩形
@@ -274,7 +277,7 @@ export default class CanvasHelper {
   public drawRectangle(layer: Rectangle) {
     this.context.beginPath();
     const pt = this.worldCoordinateToLocal(layer.getNorthWest());
-    this.context.rect(pt[0], pt[1], layer.width, layer.height);
+    this.context.rect(pt[0], pt[1], layer.width * this.retina, layer.height * this.retina);
     this._fillstroke(layer);
   }
   /**
@@ -291,6 +294,12 @@ export default class CanvasHelper {
       this.aliaveCache.set(layer.url, imageData);
       const bound = layer.getGeometry();
       const position = this.worldCoordinateToLocal([bound.x, bound.y + bound.height]);
+      if (this.isCache) {
+        this.context.shadowOffsetX = 5; // 阴影Y轴偏移
+        this.context.shadowOffsetY = 5; // 阴影X轴偏移
+        this.context.shadowBlur = 8; // 模糊尺寸
+        this.context.shadowColor = 'rgba(0, 0, 0, 0.5)'; // 颜色
+      }
       this.context.drawImage(imageData, position[0], position[1], bound.width * this.retina, bound.height * this.retina);
     } else {
       this.render.setPeddingLayer(layer.id);
@@ -304,15 +313,20 @@ export default class CanvasHelper {
    * @param layer 文字图层
    */
   public drawText(layer: IText) {
+    this.context.save();
     this._setFontStyle(layer);
     const pos: Vertex = layer.getGeometry();
     const localPt = this.worldCoordinateToLocal(pos);
     const content: string[] = layer.content.map((item) => item.text);
     const fontSize = layer.getFontSize();
-    const space: number = layer.options.verticleSpace;
+    const space: number = layer.options.verticleSpace * this.retina;
     const len: number = layer.content.length;
     for (let i = 0; i < len; i++) {
       let y: number = 0;
+      if (i === 1) {
+        this.context.textAlign = 'left';
+        localPt[0] -= layer.options.maxLength / 2 * this.retina;
+      }
       if (layer.options.baseLine === 'bottom') {
         y = localPt[1] - (len - i - 1) * (fontSize + space);
       } else if (layer.options.baseLine === 'middle') {
@@ -326,6 +340,7 @@ export default class CanvasHelper {
         this.context.strokeText(content[i], localPt[0], y);
       }
     }
+    this.context.restore();
   }
   /**
    * 返回文字的对应宽度
@@ -352,6 +367,12 @@ export default class CanvasHelper {
       this.context.fillStyle = options.fillColor || options.color;
       this.context.fill(options.fillRule || 'evenodd');
     }
+    if (options.shadow) {
+      this.context.shadowOffsetX = options.shadowOffsetX || 5; // 阴影Y轴偏移
+      this.context.shadowOffsetY = options.shadowOffsetY || -5; // 阴影X轴偏移
+      this.context.shadowBlur = options.shadowBlur || 12; // 模糊尺寸
+      this.context.shadowColor = options.shadowColor || 'rgba(0, 0, 0, 0.5)'; // 颜色
+    }
     if (options.stroke && options.weight !== 0) {
       if (this.context.setLineDash) {
         this.context.setLineDash(layer.options && layer.options.dashArray || []);
@@ -377,6 +398,12 @@ export default class CanvasHelper {
     }
     if (options.fill) {
       this.context.fillStyle = this.isCache ? layer.highOptions.fillColor || layer.highOptions.color : layer.options.fillColor || layer.options.color;
+    }
+    if (options.shadow) {
+      this.context.shadowOffsetX = options.shadowOffsetX || 5; // 阴影Y轴偏移
+      this.context.shadowOffsetY = options.shadowOffsetY || -5; // 阴影X轴偏移
+      this.context.shadowBlur = options.shadowBlur || 12; // 模糊尺寸
+      this.context.shadowColor = options.shadowColor || 'rgba(0, 0, 0, 0.5)'; // 颜色
     }
     if (options.stroke) {
       this.context.strokeStyle = this.isCache ? layer.highOptions.color : layer.options.color;

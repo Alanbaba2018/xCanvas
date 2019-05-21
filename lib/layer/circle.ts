@@ -1,6 +1,6 @@
 import Layer from './layer';
-import { GraphType, XY, Vertex} from '@/lib/typeof/typeof';
-import * as math from '../math';
+import { GraphType, Vertex} from '../typeof/typeof';
+import * as math from '../math/index';
 
 export default class Circle extends Layer {
   protected geometry: Vertex;

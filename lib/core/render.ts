@@ -7,7 +7,7 @@ import Polyline from '../layer/polyline';
 import ImageLayer from '../layer/imageLayer';
 import LayerGroup from '../layer/layerGroup';
 import IText from '../layer/text';
-import * as math from '../math';
+import * as math from '../math/index';
 import Rectangle from '../layer/rectangle';
 
 export default class Render {
@@ -18,12 +18,12 @@ export default class Render {
   private stage: Stage;
   private canvasHelper: CanvasHelper;
   private cacheHelper: CanvasHelper;
+  private isBatching: boolean =  false;
   constructor(w: number, h: number, stage: Stage) {
     const scale: number = stage.getZoom();
     this.canvasHelper = new CanvasHelper(w, h, this, scale);
     this.cacheHelper = new CanvasHelper(w, h, this, scale);
     this.cacheHelper.isCache = true;
-    this.canvasHelper.setBackground('#c6c6c6');
     this.stage = stage;
     this.peddingLayers = new Set();
   }
@@ -56,6 +56,9 @@ export default class Render {
   public getCanvasDom(): HTMLCanvasElement {
     const mainCanvas: HTMLCanvasElement = this.canvasHelper.getCanvasDom();
     mainCanvas.style.zIndex = '0';
+    mainCanvas.style.position = 'absolute';
+    mainCanvas.style.top = '0';
+    mainCanvas.style.left = '0';
     return mainCanvas;
   }
   /**
@@ -88,6 +91,13 @@ export default class Render {
     return this.canvasHelper.getViewBound();
   }
   /**
+   * 设置批处理状态，减少重绘次数
+   * @param status Boolean
+   */
+  public setBatch(status: boolean) {
+    this.isBatching = status;
+  }
+  /**
    * 返回加载所有图层的画布canvas
    * @param options 渲染参数
    */
@@ -95,7 +105,7 @@ export default class Render {
     const bounds: math.Bound[] = [];
     this.stage.eachLayer((layer: Layer) => {
       const bbound: math.Bound = layer.getBound();
-      bounds[0] = bounds.length === 1 ? bounds[0].expand(bbound) : bbound;
+      bounds[0] = bounds.length === 1 ? bounds[0].union(bbound) : bbound;
     });
     if (bounds.length === 0) {
       return Promise.resolve(this.getCanvasDom());
@@ -223,8 +233,11 @@ export default class Render {
    * 画布重绘
    */
   public redraw() {
+    if (this.isBatching) {
+      return;
+    }
     this.canvasHelper.clear();
-    this.canvasHelper.setBackground('#c6c6c6');
+    // this.canvasHelper.setBackground('#c6c6c6');
     this.canvasHelper.startDraw(true);
     const bound = this.stage.getBound();
     const layers = this.stage.getLayers();

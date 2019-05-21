@@ -2,7 +2,7 @@ import Evt from './evt';
 import Render from './render';
 import { EventData, Vertex, GraphType } from '../typeof/typeof';
 import Layer from '../layer/layer';
-import * as math from '../math';
+import * as math from '../math/index';
 import LayerGroup from '../layer/layerGroup';
 
 interface ValidEventType {
@@ -21,9 +21,10 @@ export default class Stage extends Evt {
   private draggEnable: boolean = true;
   private center: Vertex;
   private zoom: number = 1;
-  private minZoom: number = 0.5;
+  private minZoom: number = 0.1;
   private maxZoom: number = 30;
-  private zoomChange: number = 0.5;
+  private zoomChange: number = 0.1;
+  private amination!: number;
   private readonly layers: Map <string, Layer>;
   private readonly highLightLayers: Map <string, Layer>;
   constructor(id: string, options: Options = {}) {
@@ -100,6 +101,14 @@ export default class Stage extends Evt {
    */
   public getBound(): math.Bound {
     return this.render.getBound();
+  }
+  /**
+   * 将世界坐标转换成屏幕坐标
+   * @param pt 世界坐标
+   */
+  public transferWorldCoordinateToScreen(pt: Vertex): Vertex {
+    const canvasHelper = this.render.getCanvasHelper();
+    return canvasHelper.worldCoordinateToScreen(pt);
   }
   /**
    * 返回包含所有图层的画布图片
@@ -189,7 +198,7 @@ export default class Stage extends Evt {
    * @param layer Layer
    */
   public removeLayer(layer: Layer) {
-    if (!this.layers.has(layer.id)) {
+    if (layer && !this.layers.has(layer.id)) {
       return this;
     }
     this.layers.delete(layer.id);
@@ -266,9 +275,8 @@ export default class Stage extends Evt {
   public setZoom(zoom: number) {
     const nzoom = this._getValidateZoom(zoom);
     if (nzoom) {
-      this.zoom = nzoom;
+      this.setView(this.center, nzoom);
     }
-    this.setView(this.center, this.zoom);
   }
   /**
    * 放大
@@ -288,13 +296,35 @@ export default class Stage extends Evt {
    * @param zoom 缩放级别
    */
   public setView(center: Vertex, zoom?: number) {
-    this.center = center;
-    this.zoom = zoom || this.zoom;
-    this.render.setCenter(center, this.zoom);
-    requestAnimationFrame(() => {
-      this.render.redraw();
-      this.fire('moveend', {target: this, sourceTarget: event});
-    });
+    // this.center = center;
+    // this.zoom = zoom || this.zoom;
+    // this.render.setCenter(center, this.zoom);
+    // this.render.redraw();
+    // this.fire('moveend', {target: this, sourceTarget: event});
+    this._render(center, zoom || this.zoom);
+  }
+  /**
+   * 缩放视图窗口至目标Bound
+   * @param bound 缩放的Bound
+   */
+  public fitBound(bound: math.Bound) {
+    const center = bound.getCenter();
+    const {width, height} = this.getBound();
+    let zoom_w = width * this.zoom / bound.width;
+    let zoom_h = height * this.zoom / bound.height;
+    zoom_w = Math.floor(zoom_w / this.zoomChange) * this.zoomChange;
+    zoom_h = Math.floor(zoom_h / this.zoomChange) * this.zoomChange;
+    const zoom_min = Math.min(zoom_w, zoom_h);
+    let zoom = Math.max(zoom_min, this.minZoom);
+    zoom = Math.min(zoom, 1);
+    this._render(center, zoom);
+  }
+  /**
+   * 强制重新渲染
+   */
+  public forceRender(center?: Vertex) {
+    this.render.setCenter(center || this.center, this.zoom);
+    this.render.redraw();
   }
   /**
    * 开启pan功能
@@ -313,6 +343,57 @@ export default class Stage extends Evt {
    */
   public updateSize() {
     this.render.resize(this.container.clientWidth, this.container.clientHeight);
+  }
+  /**
+   * 开启批处理
+   */
+  public startBatch() {
+    this.render.setBatch(true);
+  }
+  /**
+   * 关闭批处理
+   */
+  public endBatch() {
+    this.render.setBatch(false);
+    this.render.redraw();
+  }
+  /**
+   * 移动画布到新的位置
+   * @param targetCenter 新的中心点
+   * @param targetZoom 新的缩放等级
+   */
+  private _render(targetCenter: Vertex, targetZoom: number) {
+    const stepX: number = (targetCenter[0] - this.center[0]) / 16;
+    const stepY: number = (targetCenter[1] - this.center[1]) / 16;
+    const zoomChange: number = (targetZoom - this.zoom) / 16;
+    const filter = () => {
+      return math.Base.isSamePoint(this.getCenter(), targetCenter) && math.Base.isZero(this.zoom - targetZoom);
+    }
+    if (this.amination) {
+      cancelAnimationFrame(this.amination);
+    }
+    this._amination(stepX, stepY, zoomChange, filter);
+  }
+  /**
+   * 开启动画移动
+   * @param stepX x步距
+   * @param stepY y步距
+   * @param zoomChange zoom步距
+   * @param filter 停止动画函数
+   */
+  private _amination(stepX: number, stepY: number, zoomChange: number, filter: Function) {
+    if (filter()) {
+      this.fire('moveend', {target: this, sourceTarget: event});
+      return;
+    }
+    this.center[0] += stepX;
+    this.center[1] += stepY;
+    this.zoom += zoomChange;
+    this.amination = requestAnimationFrame(() => {
+      this.render.setCenter(this.center, this.zoom);
+      this.render.redraw();
+      this._amination(stepX, stepY, zoomChange, filter);
+    });
   }
   /**
    * 设置stage初始化参数
@@ -360,13 +441,13 @@ export default class Stage extends Evt {
    */
   private _initEvents() {
     const fn = this._eventHandler;
-    const events: string[] = ['click', 'dblclick', 'mousedown', 'mousemove', 'mouseup', 'contextmenu'];
+    const events: string[] = ['click', 'dblclick', 'mousedown', 'mousemove', 'mouseup', 'mouseover', 'mouseleave', 'mousewheel', 'contextmenu'];
     for (const evt of events) {
       this._listenerEvent(evt, fn);
     }
     // 绑定默认的平移缩放等事件
     const canvasDom = this.render.getCacheCanvasDom();
-    canvasDom.addEventListener('mousewheel', this._zoom.bind(this));
+    // canvasDom.addEventListener(this._formatDOMEvent('mousewheel'), this._zoom.bind(this));
     canvasDom.addEventListener('mousedown', this._pan.bind(this));
     canvasDom.addEventListener('touchstart', this._pan.bind(this));
     document.addEventListener('selectstart', () => false);
@@ -377,18 +458,26 @@ export default class Stage extends Evt {
   private _zoom() {
     const canvasHelper = this.render.getCanvasHelper();
     const e: any = event;
-    const delta = e.wheelDelta / 120 * this.zoomChange;
+    const delta = e.wheelDelta ? e.wheelDelta / 120 * this.zoomChange : -e.detail * this.zoomChange;
     if (delta < 0 && (this.zoom + delta) < this.minZoom || delta > 0 && (this.zoom + delta) > this.maxZoom) {
       return;
     }
     this.zoom += delta;
     const offset = canvasHelper.getOffset(e);
+    // const c = this.render.getCenter();
+    // const offset = canvasHelper.screenToWorldCoordinate([e.offsetX, e.offsetY]);
+    // this.center = [c[0] + (offset[0] - c[0]) * delta, c[1] + (offset[1] - c[1]) * delta];
+    // console.log('center1', this.center);
+    // this.render.setCenter(this.center, this.zoom);
+    // this.render.redraw();
+    // this.setView(, this.zoom);
     canvasHelper.setScale(this.zoom);
     const center = canvasHelper.getOriginCenter();
     canvasHelper.setCenter([center[0] - offset[0] * delta, center[1] + offset[1] * delta]);
     this.render.updateCacheCanvas();
     this.render.redraw();
     this.fire('moveend', {target: this, sourceTarget: event});
+    e.preventDefault();
   }
   /**
    * 画布平移事件
@@ -403,7 +492,7 @@ export default class Stage extends Evt {
     if (e.touches) {
       lastPosition = [e.touches[0].clientX, e.touches[0].clientY];
     }
-    e.preventDefault();
+    // e.preventDefault();
     const moveFunction = () => {
       let ev: any = event;
       if (ev.touches) {
@@ -429,8 +518,8 @@ export default class Stage extends Evt {
       this.fire('moveend', {target: this, sourceTarget: evt});
       evt.preventDefault();
     };
-    document.addEventListener('mousemove', moveFunction);
-    document.addEventListener('mouseup', upFunction);
+    document.addEventListener(this._formatDOMEvent('mousemove'), moveFunction);
+    document.addEventListener(this._formatDOMEvent('mouseup'), upFunction);
     document.addEventListener('touchmove', moveFunction);
     document.addEventListener('touchend', upFunction);
   }
@@ -506,6 +595,18 @@ export default class Stage extends Evt {
     return targets;
   }
   /**
+   * 处理浏览器之间事件的兼容性
+   * @param evt 事件类型
+   */
+  private _formatDOMEvent(evt: string): string {
+    if (navigator.userAgent.includes('Firefox')) {
+      if (evt === 'mousewheel') {
+        return 'DOMMouseScroll';
+      }
+    }
+    return evt;
+  }
+  /**
    * 格式化事件类型
    * @param evt 事件类型
    */
@@ -517,6 +618,9 @@ export default class Stage extends Evt {
       mousedown: 'mousedown',
       mousemove: 'mousemove',
       mouseup: 'mouseup',
+      mouseover: 'mouseover',
+      mouseleave: 'mouseleave',
+      mousewheel: 'mousewheel',
       contextmenu: 'contextmenu',
     };
     return validType[evt] || '';

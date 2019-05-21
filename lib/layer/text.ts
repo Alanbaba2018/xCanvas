@@ -1,6 +1,6 @@
 import Layer from './layer';
 import { GraphType, Vertex, TextAlign, BaseLine } from '../typeof/typeof';
-import * as math from '../math';
+import * as math from '../math/index';
 
 
 export default class IText extends Layer {

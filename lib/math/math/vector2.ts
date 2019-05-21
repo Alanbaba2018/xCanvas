@@ -1,4 +1,5 @@
 import Operation from './operation';
+import { Vertex } from '../typedef/geometry_type';
 
 export default class Vector2 {
   public static lerp(vec1: Vector2, vec2: Vector2, lerp: number): Vector2 {
@@ -50,9 +51,9 @@ export default class Vector2 {
     this.y = y;
     return this;
   }
-  public scale(multiple: number): Vector2 {
-    this.x *= multiple;
-    this.y *= multiple;
+  public scale(scale_x: number, scale_y?: number): Vector2 {
+    this.x *= scale_x;
+    this.y *= scale_y || scale_x;
     return this;
   }
   public getSquareLength(): number {
@@ -60,5 +61,8 @@ export default class Vector2 {
   }
   public getModelLength(): number {
     return Math.sqrt(this.x ** 2 + this.y ** 2);
+  }
+  public toArray(): Vertex {
+    return [this.x, this.y];
   }
 }

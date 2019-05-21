@@ -1,8 +1,8 @@
 import Evt from '../core/evt';
 import Stage from '../core/stage';
 import Util from '../util/util';
-import { GraphType, XY, Vertex } from '@/lib/typeof/typeof';
-import * as math from '../math';
+import { GraphType, XY, Vertex } from '../typeof/typeof';
+import * as math from '../math/index';
 import LayerGroup from './layerGroup';
 
 export default abstract class Layer extends Evt {
@@ -29,14 +29,15 @@ export default abstract class Layer extends Evt {
       color: '#3388ff',
       weight: 1,
       opacity: 1,
-      lineCap: 'round',
-      lineJoin: 'round',
+      lineCap: 'butt',
+      lineJoin: 'miter',
       dashArray: null,
       dashOffset: null,
       fill: false,
       fillColor: null,
       fillOpacity: 1,
       fillRule: 'evenodd',
+      shadow: false,
       strict: true,
     };
     this.type = this.getLayerType();
@@ -46,6 +47,12 @@ export default abstract class Layer extends Evt {
    */
   public getStage(): Stage | undefined {
     return this.options._stage;
+  }
+  /**
+   * 返回业务脏数据
+   */
+  public getDirtyData() {
+    return this.dirtyData;
   }
   /**
    * 设置图层属性
@@ -84,7 +91,7 @@ export default abstract class Layer extends Evt {
    * @param options 高亮图层style
    */
   public setHighlightOptions(options: {[k: string]: any} = {}) {
-    this.highOptions = {...this.highOptions, ...options};
+    this.highOptions = {...this.highOptions, ...options,};
   }
   /**
    * 清除高亮
@@ -184,7 +191,7 @@ export default abstract class Layer extends Evt {
       for (const geo of geometry) {
         const line = new math.Polyline(geo);
         if (bound) {
-          bound = line.getBound().expand(bound);
+          bound = line.getBound().union(bound);
         } else {
           bound = line.getBound();
         }

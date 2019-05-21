@@ -2,7 +2,7 @@ import Constant from '../math/constant';
 import {XY, Vertex} from '../typedef/geometry_type';
 import Vector2 from '../math/vector2';
 import Operation from './operation';
-import { Bound } from '@/lib/math';
+import Bound from './bound';
 
 export default class Base {
   public static isZero(n: number, tolerance?: number): boolean {

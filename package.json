@@ -1,0 +1,33 @@
+{
+  "name": "xcanvas",
+  "version": "1.0.0",
+  "description": "a draw 2d-graph canvas library",
+  "main": "./index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "compile": "webpack && npm run copy",
+    "copy": "node copy/copyres.js",
+    "push": "npm version patch --no-git-tag-version&& npm publish"
+  },
+  "devDependencies": {
+    "source-map-loader": "^0.2.4",
+    "ts-loader": "^5.2.1",
+    "typescript": "^3.1.1",
+    "webpack": "^4.20.2",
+    "webpack-cli": "^3.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alanbaba2018/xCanvas.git"
+  },
+  "keywords": [
+    "canvas"
+  ],
+  "author": "alanbaba2018",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Alanbaba2018/xCanvas/issues"
+  },
+  "homepage": "https://github.com/Alanbaba2018/xCanvas#readme"
+}

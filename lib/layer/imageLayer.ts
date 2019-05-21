@@ -1,14 +1,14 @@
 import Layer from './layer';
 import { GraphType } from '../typeof/typeof';
 import Util from '../util/util';
-import * as math from '../math';
-import { Vertex } from '@/lib/math/typedef/geometry_type';
+import * as math from '../math/index';
+import { Vertex } from '../math/typedef/geometry_type';
 
 export default class ImageLayer extends Layer {
   public url: string;
   public accesible: boolean = true;
-  private x: number;
-  private y: number;
+  public x: number;
+  public y: number;
   private width: number;
   private height: number;
   constructor(url: string, x: number, y: number, width?: number, height?: number, options: {[k: string]: string} = {}) {
@@ -26,11 +26,20 @@ export default class ImageLayer extends Layer {
   public getGeometry(): math.Bound {
     return new math.Bound(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
   }
+  public setImage(url: string, width?: number, height?: number) {
+    this.url = url;
+    if (width) {
+      this.width = width;
+    }
+    if (height) {
+      this.height = height;
+    }
+    this.updateAll();
+  }
   public async loadImageData(): Promise<any> {
-    const src: string = await Util.loadImageByBlob(this.url);
     const image: HTMLImageElement = new Image();
     // image.setAttribute('crossOrigin', 'anonymous');
-    image.src = URL.createObjectURL(src);
+    image.src = this.url;
     const self = this;
     return new Promise((resolve, reject) => {
       image.addEventListener('load', () => {
