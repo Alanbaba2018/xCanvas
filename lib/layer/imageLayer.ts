@@ -1,6 +1,5 @@
 import Layer from './layer';
 import { GraphType } from '../typeof/typeof';
-import Util from '../util/util';
 import * as math from '../math/index';
 import { Vertex } from '../math/typedef/geometry_type';
 

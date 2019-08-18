@@ -18,7 +18,8 @@ export declare enum GraphType {
     RECTANGLE = "RECTANGLE",
     IMAGE = "IMAGE",
     GROUP = "GROUP",
-    TEXT = "TEXT"
+    TEXT = "TEXT",
+    QUADRATICBERZIER = "QUADRATICBERZIER"
 }
 export declare enum TextAlign {
     LEFT = "left",

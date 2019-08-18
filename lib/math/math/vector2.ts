@@ -1,5 +1,5 @@
 import Operation from './operation';
-import { Vertex } from '../typedef/geometry_type';
+import { Vertex } from '../../typeof/typeof';
 
 export default class Vector2 {
   public static lerp(vec1: Vector2, vec2: Vector2, lerp: number): Vector2 {

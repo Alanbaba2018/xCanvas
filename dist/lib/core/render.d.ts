@@ -48,6 +48,12 @@ export default class Render {
      */
     getBound(): math.Bound;
     /**
+     * 添加全局画布缓存资源
+     * @param key
+     * @param value
+     */
+    addCache(key: string, value: HTMLImageElement): void;
+    /**
      * 设置批处理状态，减少重绘次数
      * @param status Boolean
      */

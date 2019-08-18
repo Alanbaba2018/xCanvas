@@ -1,5 +1,5 @@
 import Layer from './layer';
-import { GraphType, Vertex} from '../typeof/typeof';
+import { GraphType, XY, Vertex} from '../typeof/typeof';
 import * as math from '../math/index';
 
 export default class Circle extends Layer {

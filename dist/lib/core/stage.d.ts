@@ -154,6 +154,11 @@ export default class Stage extends Evt {
      */
     zoomOut(): void;
     /**
+     * 添加图片缓存
+     * @param images
+     */
+    addImagesCache(images: string[]): void;
+    /**
      * 定位
      * @param center 定位点
      * @param zoom 缩放级别

@@ -6,7 +6,9 @@ import Polyline from '../layer/polyline';
 import IText from '../layer/text';
 import Render from './render';
 import Rectangle from '../layer/rectangle';
+import QuadraticBerzier from '../layer/quadraticBerzier';
 export default class CanvasHelper {
+    static cache: Map<string, HTMLImageElement>;
     retina: number;
     isCache: boolean;
     private readonly canvas;
@@ -16,7 +18,6 @@ export default class CanvasHelper {
     private scale;
     private center;
     private bgColor;
-    private cache;
     private aliaveCache;
     private readonly render;
     constructor(w: number, h: number, render: Render, scale?: number);
@@ -94,6 +95,12 @@ export default class CanvasHelper {
      */
     setCache(cache: Map<string, HTMLImageElement>): void;
     /**
+     * 添加缓存图片
+     * @param key 缓存key
+     * @param image 缓存image
+     */
+    addCache(key: string, image: HTMLImageElement): void;
+    /**
      * 设置分辨率
      * @param retina 分辨率
      */
@@ -148,6 +155,11 @@ export default class CanvasHelper {
      * @param layer Polyline图层
      */
     drawPolyline(layer: Polyline): void;
+    /**
+     * 绘制二次贝塞尔曲线
+     * @param layer QuatraticBerzier图层
+     */
+    drawQuadraticBerzier(layer: QuadraticBerzier): void;
     /**
      * 绘制矩形
      * @param layer Rectangle图层
