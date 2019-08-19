@@ -460,7 +460,7 @@ export default class Stage extends Evt {
     }
     // 绑定默认的平移缩放等事件
     const canvasDom = this.render.getCacheCanvasDom();
-    // canvasDom.addEventListener(this._formatDOMEvent('mousewheel'), this._zoom.bind(this));
+    canvasDom.addEventListener(this._formatDOMEvent('mousewheel'), this._zoom.bind(this));
     canvasDom.addEventListener('mousedown', this._pan.bind(this));
     canvasDom.addEventListener('touchstart', this._pan.bind(this));
     document.addEventListener('selectstart', () => false);
