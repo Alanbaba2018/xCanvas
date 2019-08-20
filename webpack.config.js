@@ -2,6 +2,7 @@ const path = require('path');
 module.exports = {
     // mode: 'development',
     entry: "./index.ts",
+    devtool: 'source-map',
     output: {
         library: 'xCanvas',
         libraryTarget: 'umd',
